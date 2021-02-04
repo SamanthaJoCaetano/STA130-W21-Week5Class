@@ -1,0 +1,99 @@
+---
+title: "Week 5 video code"
+author: "Prof. Bolton"
+output:
+  pdf_document: default
+---
+
+```{r, message=FALSE}
+options(tidyverse.quiet = TRUE)
+library(tidyverse)
+gratitude <- read_csv("gratitude.csv")
+glimpse(gratitude)
+```
+
+# 2. Calculate the test statistic
+
+```{r}
+gratitude %>% 
+  group_by(treatment) %>% 
+  summarise(means = mean(adjust_college))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r, message=FALSE}
+group_means <- gratitude %>% 
+  group_by(treatment) %>% 
+  summarise(means = mean(adjust_college))
+
+# The diff function calculates the difference between 
+# values in a vector
+diff_means <- group_means %>%
+  summarise(test_stat = diff(means))
+
+diff_means
+as.numeric(diff_means)
+```
+
+# 3. Simulate under the $H_0$
+
+```{r, message=FALSE}
+# Set things up so we can simulate
+set.seed(523)
+repetitions <- 1000
+simulated_values <- rep(NA, repetitions)
+
+# Run our simulations
+for(i in 1:repetitions){
+  # Here we are shuffling the labels (i.e. randomly reassigning each student 
+  # to a treatment group and assuming they keep the same score)
+  simdata <- gratitude %>% 
+    mutate(treatment = sample(treatment))
+  
+  # Simulation statistic calculation, 
+  # exactly like our original test stat calc
+  sim_value <- simdata %>% 
+    group_by(treatment) %>%
+    summarise(means = mean(adjust_college)) %>%
+    summarise(value = diff(means))
+  
+  # Store your simulated statistics
+  simulated_values[i] <- as.numeric(sim_value)
+}
+
+# Make into a tibble so it is easy to work with
+sim <- tibble(mean_diff = simulated_values)
+
+# Plot our estimated sampling distribution
+sim %>% ggplot(aes(x=mean_diff)) + 
+  geom_histogram(binwidth=1, color="black", fill="gray") +
+  geom_vline(xintercept = abs(diff_means$test_stat), colour = "red") +
+  geom_vline(xintercept = -abs(diff_means$test_stat), colour = "red")
+```
+
+# 4. Evaluate evidence against the $H_0$
+
+```{r}
+# Calculate p-value
+num_more_extreme <- sim %>% 
+  filter(abs(mean_diff) >= abs(diff_means$test_stat)) %>% 
+  summarise(n())
+
+p_value <- as.numeric(num_more_extreme / repetitions)
+p_value
+```
+
+
+
+
